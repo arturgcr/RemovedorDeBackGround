@@ -97,44 +97,71 @@ class IdentificaImagemDeFundo:
     def calcularFundoEliminacaoGaussiana(self):
         # Inicializar o vídeo
         video = cv2.VideoCapture(self.pathVideo)
+        
+        if not video.isOpened():
+            print("Não foi possível abrir o vídeo.")
+            return
+
         frames = []
         sucesso, imagem = video.read()
+        count = 0
+        bloco_tamanho = 100  # Tamanho do bloco de frames a serem processados de uma vez
 
         # Coletar os frames do vídeo
         while sucesso:
             frames.append(imagem)
+            count += 1
+            if count % bloco_tamanho == 0:
+                print(f"Processando bloco de {bloco_tamanho} frames a partir do frame {count - bloco_tamanho} até {count}")
+                self.processar_blocos(np.array(frames))
+                frames = []
             sucesso, imagem = video.read()
 
-        if len(frames) == 0:
-            print("Não foi possível ler nenhum frame do vídeo.")
+        # Processar os frames restantes
+        if frames:
+            print(f"Processando bloco final de {len(frames)} frames.")
+            self.processar_blocos(np.array(frames))
+
+        video.release()  # Libera o vídeo após leitura
+
+    def processar_blocos(self, frames):
+        if frames.size == 0:
             return
 
         frames = np.array(frames)
-        print("Número de frames do vídeo:", frames.shape[0])
+        print("Número de frames no bloco:", frames.shape[0])
 
-        # Inicializar a matriz para armazenar os componentes da eliminação gaussiana de cada canal
         height, width, _ = frames[0].shape
-        background = np.zeros((height, width, 3))
+        background = np.zeros((height, width, 3), dtype=np.float32)
 
         # Função para processar cada canal de cor
         def process_channel(j):
-            channel_data = frames[:, :, :, j].reshape(frames.shape[0], -1)
+            channel_data = frames[:, :, :, j].reshape(frames.shape[0], -1).astype(np.float32)
             print(f"Forma dos dados do canal {j}: {channel_data.shape}")
 
-            # Aplicar eliminação gaussiana para encontrar a matriz triangular superior
-            U, s, Vt = np.linalg.svd(channel_data, full_matrices=False)
-            # Rearranjar os fatores L e U para formar uma matriz equivalente à SVD
-            Ar = np.dot(U, Vt)
-            background[:, :, j] = Ar.mean(axis=0).reshape(height, width)
+            # Aplicar eliminação gaussiana (subtração da média para simplificação)
+            mean = np.mean(channel_data, axis=0)
+            background[:, :, j] = mean.reshape(height, width)
 
-        # Processar cada canal de cor em paralelo
+        # Processar cada canal de cor
         for j in range(3):
             process_channel(j)
 
-        # Salvar a imagem de fundo em um arquivo e exibi-la usando Matplotlib
-        cv2.imwrite(self.pathImg, background.astype(np.uint8))
-        plt.imshow(background.astype(np.uint8))
+        # Combinar o fundo calculado com a imagem acumulada anterior (se houver)
+        if hasattr(self, 'background_accumulated'):
+            self.background_accumulated = (self.background_accumulated + background) / 2
+        else:
+            self.background_accumulated = background
 
+    def salvar_e_exibir_fundo(self):
+        # Salvar a imagem de fundo em um arquivo e exibi-la usando Matplotlib
+        if hasattr(self, 'background_accumulated'):
+            cv2.imwrite(self.pathImg, self.background_accumulated.astype(np.uint8))
+            plt.imshow(self.background_accumulated.astype(np.uint8))
+            plt.show()
+        else:
+            print("Nenhum fundo calculado para salvar.")
+    
 #-----------------------------------------------------------------------------------------------------------------
 
     def removerFundo(self):
@@ -230,5 +257,5 @@ class IdentificaImagemDeFundo:
 #-----------------------------------------------------------------------------------------------------------------
 
 identificaImagem = IdentificaImagemDeFundo()
-identificaImagem.calcularFundoSVD()
+identificaImagem.calcularFundoEliminacaoGaussiana()
 identificaImagem.removerFundo()
