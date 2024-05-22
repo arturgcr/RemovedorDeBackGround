@@ -230,5 +230,5 @@ class IdentificaImagemDeFundo:
 #-----------------------------------------------------------------------------------------------------------------
 
 identificaImagem = IdentificaImagemDeFundo()
-identificaImagem.calcularFundoEliminacaoGaussiana()
+identificaImagem.calcularFundoSVD()
 identificaImagem.removerFundo()
