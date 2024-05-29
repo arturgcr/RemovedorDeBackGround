@@ -3,11 +3,6 @@ import cv2
 import matplotlib.pyplot as plt
 import threading
 
-import scipy.linalg
-
-def lu_decomposition(A):
-    lu, piv = scipy.linalg.lu_factor(A)
-    return lu
 
 class IdentificaImagemDeFundo:
     def __init__(self, pathVideo="videos/video.mp4", pathImgFundo="images/img_de_fundo.jpg", resultado="videos/video_sem_fundo.mp4"):
@@ -85,64 +80,34 @@ class IdentificaImagemDeFundo:
 
 #-----------------------------------------------------------------------------------------------------------------
 
-    def calcularFundoEliminacaoGaussiana(self, lote_de_imagens=50):
+    def calcularFundoMediaComEliminacaoGaussiana(self):
+        # Inicializar o vídeo
         video = cv2.VideoCapture(self.pathVideo)
         frames = []
-        while True:
+        sucesso, imagem = video.read()
+        while sucesso:
+            
+            imagem_suavizada = cv2.GaussianBlur(imagem, (3, 3), 1)  
+            # Coletar os frames suavizados do vídeo
+            frames.append(imagem_suavizada)
             sucesso, imagem = video.read()
-            if not sucesso:
-                break
-            frames.append(imagem)
 
         frames = np.array(frames)
-        num_frames = frames.shape[0]
 
-        altura, largura, _ = frames[0].shape
-        background = np.zeros((altura, largura, 3))
+        # Calcular o background pela média dos pixels de todos os frames suavizados
+        background = np.mean(frames, axis=0).astype(np.uint8)
 
-        def processar_canal(j, batch_frames):
-            for frame in batch_frames:
-                A = frame[:, :, j].reshape(-1, 1)  # Definir a forma correta da matriz A
-                b = np.mean(frame[:, :, j]) * np.ones(A.shape[0])  # Criar o vetor b
-                if A.shape[0] == A.shape[1]:
-                    # Aplicar a eliminação gaussiana
-                    x = np.linalg.solve(A, b)
-                    background[:, :, j] = x.reshape(altura, largura)
-                else:
-                    print("Matriz A não é quadrada, não é possível resolver o sistema.")
+        # Salvar a imagem de fundo em um arquivo e exibi-la usando Matplotlib
+        cv2.imwrite(self.pathImg, background)
+        plt.imshow(cv2.cvtColor(background, cv2.COLOR_BGR2RGB))
 
-        for i in range(num_frames // lote_de_imagens):
-            batch_frames = frames[i * lote_de_imagens: (i + 1) * lote_de_imagens]
-            threads = []
-            for j in range(3):
-                thread = threading.Thread(target=processar_canal, args=(j, batch_frames))
-                threads.append(thread)
-                thread.start()
-            for thread in threads:
-                thread.join()
-
-        frames_faltando = num_frames % lote_de_imagens
-        if frames_faltando > 0:
-            batch_frames = frames[(num_frames // lote_de_imagens) * lote_de_imagens:]
-            threads = []
-            for j in range(3):
-                thread = threading.Thread(target=processar_canal, args=(j, batch_frames))
-                threads.append(thread)
-                thread.start()
-            for thread in threads:
-                thread.join()
-
-        cv2.imwrite(self.pathImg, background.astype(np.uint8))
-        cv2.imshow('Background', background.astype(np.uint8))
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
 
 #-----------------------------------------------------------------------------------------------------------------
 
     def removerFundo(self):
-        # Carregar o vídeo
+        
         video = cv2.VideoCapture(self.pathVideo)
-        # Carregar a imagem de fundo
+        
         background = cv2.imread(self.pathImg)
 
         # Configurar o gravador de vídeo com as mesmas configurações do vídeo original
@@ -180,5 +145,5 @@ class IdentificaImagemDeFundo:
 #-----------------------------------------------------------------------------------------------------------------
 
 identificaImagem = IdentificaImagemDeFundo()
-identificaImagem.calcularFundoEliminacaoGaussiana()
+identificaImagem.calcularFundoMediaComEliminacaoGaussiana()
 identificaImagem.removerFundo()
