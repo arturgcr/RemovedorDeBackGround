@@ -5,6 +5,22 @@ import os
 class BackGroundIdentifier:
     @staticmethod
     def calculate_background(video_path="videos/video.mp4", background_img_path="images/background.png", batch_size=1, gaussian_kernel_size=(1, 1), gaussian_sigma=1, bilateral_diameter=1, bilateral_sigma_color=0, bilateral_sigma_space=0):
+        """
+        Calculates the background image from a video using a batch processing approach.
+
+        Parameters:
+            video_path (str): The path to the video.
+            background_img_path (str): The path where the background image will be saved.
+            batch_size (int): Number of frames to process at once.
+            gaussian_kernel_size (tuple): Kernel size for Gaussian smoothing.
+            gaussian_sigma (int): Standard deviation of Gaussian kernel.
+            bilateral_diameter (int): Diameter of each pixel neighborhood for bilateral filtering.
+            bilateral_sigma_color (float): Filter sigma in the color space.
+            bilateral_sigma_space (float): Filter sigma in the coordinate space.
+
+        Returns:
+            None
+        """
         # Get the output directory
         output_dir = os.path.dirname(background_img_path)
 
@@ -49,7 +65,7 @@ class BackGroundIdentifier:
             accumulated_background += np.sum(frames, axis=0)
             # Increment the number of frames
             num_frames += len(frames)
-        #Verify if the number of frames is greater than 0 to avoid division by zero
+        # Verify if the number of frames is greater than 0 to avoid division by zero
         if num_frames > 0:
             # Calculate the average background
             accumulated_background /= num_frames
